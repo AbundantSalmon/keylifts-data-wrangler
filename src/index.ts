@@ -12,12 +12,9 @@ const poundsToKilograms = (pounds?: number | null): number | null | undefined =>
 }
 
 const main = async () => {
-  const workouts_exercises = await knex
-    .select('*')
-    .from('workouts')
-    .leftJoin('exercises', 'workouts.id', 'exercises.workout_id')
+  const workouts = await knex('workouts').select('*')
 
-  interface ReducedWorkout {
+  interface WorkoutSummary {
     [key: string]: Partial<Workouts> & {
       exercises: {
         [key: string]: ExerciseSets & {
@@ -26,8 +23,9 @@ const main = async () => {
       }
     }
   }
-  const summary = workouts_exercises.reduce<ReducedWorkout>((acc, curr) => {
-    acc[curr.workout_id] = {
+
+  const summary = workouts.reduce<WorkoutSummary>((acc, curr) => {
+    acc[curr.id] = {
       exercises: {},
     }
     return acc
@@ -43,14 +41,13 @@ const main = async () => {
     }
   })
 
-  const workouts = await knex('workouts').select('*')
   workouts.forEach(workout => {
     if (workout.id in summary) {
       summary[workout.id] = { ...workout, ...summary[workout.id] }
     }
   })
 
-  const summaryArray = Object.entries(summary).map(([id, workout]) => {
+  const summaryArrayWithSortedExercises = Object.entries(summary).map(([id, workout]) => {
     const { exercises, ...rest } = workout
     return {
       ...rest,
@@ -66,7 +63,7 @@ const main = async () => {
     }
   })
 
-  const rowsToExport = summaryArray
+  const rowsToExport = summaryArrayWithSortedExercises
     .filter(workout => workout.status === COMPLETE)
     .map(workout => {
       return [
