@@ -10,6 +10,7 @@
   "dependencies": {
     "better-sqlite3": "^7.6.2",
     "knex": "^2.3.0",
+    "mathjs": "^11.2.1",
     "xlsx": "^0.18.5",
     "zod": "^3.14.4"
   },

@@ -1,6 +1,7 @@
 import { ExerciseSets, Workouts } from 'knex/types/tables'
 import { knex } from './db'
 import * as XLSX from 'xlsx'
+import * as math from 'mathjs'
 
 const COMPLETE = 'COMPLETE'
 
@@ -63,7 +64,7 @@ const main = async () => {
     }
   })
 
-  const rowsToExport = summaryArrayWithSortedExercises
+  const byDayRowsToExport = summaryArrayWithSortedExercises
     .filter(workout => workout.status === COMPLETE)
     .map(workout => {
       return [
@@ -79,7 +80,7 @@ const main = async () => {
           .map(exercise => {
             return [
               exercise.exercise_name,
-              poundsToKilograms(exercise.weight)?.toFixed(1),
+              math.round(poundsToKilograms(exercise.weight) || 0, 1),
               exercise.reps,
             ]
           }),
@@ -90,9 +91,32 @@ const main = async () => {
       return acc.concat(curr)
     }, [])
 
+  const rowSheetHeaders = ['Date Completed', 'Week', 'Day', 'Exercise', 'Weight (kg)', 'Reps']
+  const rowSheetRowsToExport = summaryArrayWithSortedExercises
+    .filter(workout => workout.status === COMPLETE)
+    .flatMap(workout => {
+      return workout.exercises
+        .filter(exercise => exercise.status === COMPLETE)
+        .map(exercise => {
+          return [
+            workout.date_completed ? new Date(workout.date_completed) : 'date missing',
+            workout.week,
+            workout.name,
+            exercise.exercise_name,
+            math.round(poundsToKilograms(exercise.weight) || 0, 1),
+            exercise.reps,
+          ]
+        })
+    })
+
   const workbook = XLSX.utils.book_new()
-  const worksheet = XLSX.utils.aoa_to_sheet(rowsToExport)
-  XLSX.utils.book_append_sheet(workbook, worksheet, 'Workouts')
+
+  const byDayWorksheet = XLSX.utils.aoa_to_sheet(byDayRowsToExport)
+  XLSX.utils.book_append_sheet(workbook, byDayWorksheet, 'By Day')
+
+  const rowWorksheet = XLSX.utils.aoa_to_sheet([rowSheetHeaders, ...rowSheetRowsToExport])
+  XLSX.utils.book_append_sheet(workbook, rowWorksheet, 'Rows')
+
   XLSX.writeFileXLSX(workbook, 'workouts.xlsx')
 }
 
